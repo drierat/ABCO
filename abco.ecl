@@ -33,62 +33,58 @@ problem_instance(Clients,Demands,MaxCap,Distances,Pheromones):-
               [4.472135955,4,123105626,4.242640687,2.236067977,0,2],
               [4,5,5.830951895,2.236067977,2,0]
              ],
- Pheromones = [[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]].
+ Pheromones = [[0,0.2,0.2,0.2,0.2,0.2],[0.2,0,0.2,0.2,0.2,0.2],[0.2,0.2,0,0.2,0.2,0.2],
+ 			   [0.2,0.2,0.2,0,0.2,0.2],[0.2,0.2,0.2,0.2,0,0.2],[0.2,0.2,0.2,0.2,0.2,0]].
 
 %construct_solutions(+M,+Alpha,+Beta,-Ant_routes,+Clients) Construction of the solutions for a set of ants
-construct_solutions(M,Alpha,Beta,Ant_routes,Clients,Demands,MaxCap,Distances,Pheromones):-
+construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Pheromones):-
  length(Ants_routes,M), 										%A list of M routes, each corresponding to an ant
   (foreach(Ant_k,Ants_routes),param(Alpha,Beta,Clients,Demands,MaxCap,Distances,Pheromones) do 		%For each ant, her route is built
   (fromto([0],Partial_sol_0,Partial_sol_1,Ant_k),				
-   fromto(Clients,Clients_0,Clients_1,[]),fromto(0,Pos_0,Next,_),param(Demands,MaxCap,Distances,Pheromones) do
+   fromto(Clients,Clients_0,Clients_1,[]),fromto(0,Pos_0,Next,_),param(Alpha,Beta,Demands,MaxCap,Distances,Pheromones) do
     choose_next_movement(Pos_0,Clients_0,Partial_sol_0,Demands,MaxCap,Distances,Pheromones,Next,Alpha,Beta),	%The ant chooses her next step
-    move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next)	%The ant moves (update the values in the loop)
+    move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next)	%The ant moves (update the values in the loop) TO DO
   ),
  writeln(Ant_k)
  ).
 
 % INCOMPLETE RULES (below)
 
-local_search(Ant_routes,Ant_routes_LS).	%TO DO
-update_trails(Ro,Ant_routes_LS).		%TO DO
+local_search(_Ant_routes,_Ant_routes_LS).	%TO DO
+update_trails(_Ro,_Ant_routes_LS).		%TO DO
 show_solution.							%TO DO
 
-choose_next_movement(Pos_0,Clients_0,_Partial_sol_0,Demands,MaxCap,Distances,Pheromones,Next,Alpha,Beta):-
- length(Clients_0,L),
-%---
-%random version (chooses next client randomly)
-% random(N), Ancho is (2^31-1)/L, N1 is N/Ancho, ceiling(N1,Nextf), integer(Nextf,Next). % This is a test: The ant chooses the next movement randomly
-%---
-PosCorr is Pos_0+1, %Arrays are indexed from 0
-ith(PosCorr,Distances,DistL),
-ith(PosCorr,Pheromones,PheroL),
-PheroTOTAL is sum(PheroL), % TO DO This should be the sum of each element "up to alpha"
-%---
-%greedy version (chooses always the shortest path)
-%(foreach(J,Clients_0),fromto(9999,Din,Dout,Dist_i_j),fromto(0,NextIn,NextOut,Next),param(DistL) do
-% Jcorr is J+1, %Arrays are indexed from 0
-% ith(Jcorr,DistL,Dist2check),
-% (Dist2check<Din -> Dout is Dist2check, NextOut is J;
-% 					Dout is Din, NextOut is NextIn
-% )
-%)
-%---
-(foreach(J,Clients_0),fromto([],PIn,POut,Plist),param(PosCorr,DistL,PheroL,PheroTOTAL,Alpha,Beta) do
- Jcorr is J+1, %Arrays are indexed from 0
- ith(Jcorr,DistL,Dist_i_j),
- ith(Jcorr,PheroL,Phero_i_j),
- InvDist_i_j is 1/Dist_i_j,
- P_i_j is ((Phero_i_j)^Alpha*(InvDist_i_j)^Beta)/(PheroTOTAL*(InvDist_i_j)^Beta), % Probability calculus BROKEN - FIX!!!
- append(PIn,[P_i,j],POut)
-),
-writeln(Plist)
-%TO DO: Once the list is built, decide the next movement
-.
+choose_next_movement(Pos_0,Clients_0,_Partial_sol_0,_Demands,_MaxCap,Distances,Pheromones,Next,Alpha,Beta):-
+ PosCorr is Pos_0+1, %Arrays are indexed from 0
+ ith(PosCorr,Distances,DistL),
+ ith(PosCorr,Pheromones,PheroL),
+ remove_ith(PosCorr,DistL,DistLCorr),
+ remove_ith(PosCorr,PheroL,PheroLCorr),
+ calulate_ProbDenom(PheroLCorr,DistLCorr,Alpha,Beta,SUM_Ph_H),
+ (foreach(J,Clients_0),fromto([],PIn,POut,Plist),param(_PosCorr,DistL,PheroL,SUM_Ph_H,Alpha,Beta,SUM_Ph_H) do
+  Jcorr is J+1, %Arrays are indexed from 0
+  ith(Jcorr,DistL,Dist_i_j),
+  ith(Jcorr,PheroL,Phero_i_j),
+  P_i_j is ((Phero_i_j^Alpha)*((1/Dist_i_j)^Beta))/SUM_Ph_H, % CHECK. The sum should be 1!!!
+  append(PIn,[P_i_j],POut)
+ ),
+ writeln(Plist),
+ length(Clients_0,Clients_0L),
+ random(N), Ancho is (2^31-1)/Clients_0L, N1 is N/Ancho, ceiling(N1,Nextf), integer(Nextf,Next),
+ writeln(Next).
 
 %move(+Partial_sol_0,-Partial_sol_1,+Clients_0,-Clients_1,+Next)
 move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next):-
  append(Partial_sol_0,[Next],Partial_sol_1),
  delete_meu(Next,Clients_0,Clients_1).
+
+%calulate_ProbDenom(+PheroL,+DistL,+Alpha,+Beta,-SUM_Ph_H)
+calulate_ProbDenom(PheroL,DistL,Alpha,Beta,SUM_Ph_H):-
+ (foreach(Ph_l,PheroL),foreach(D_l,DistL),fromto(0,SumIn,SumOut,SUM_Ph_H),param(Alpha,Beta) do
+  SumOut is SumIn + (Ph_l^Alpha)*(D_l^Beta)
+ ).
+
+
 
 % ----- Auxiliay rules -----
 
@@ -104,6 +100,13 @@ delete_meu(El,[H|T],X):-
                delete_meu(El,T,Y),
                append([H],Y,X)
     ).
+
+%remove_ith(+N,+L,-El) List L without the Nth element 
+remove_ith(N,L,L_N):-
+N_1 is N-1,
+length(L1,N_1),
+append(L1,[_X|L2],L),
+append(L1,L2,L_N).
 
 %ith(+N,+L,-El) Returns El, which is the Nth element of list L 
 ith(1,[H|_],H).
