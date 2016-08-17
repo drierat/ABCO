@@ -16,9 +16,9 @@ abco:-
 % Should the parameters be read from a file or be in the query itself (?)
 parameters(Max_sol,M,Alpha,Beta,Ro):-
  Max_sol is 10,			%Temination condition - maximum number of solutions
- M is 10, 					%Number of ants building the solutions
+ M is 1, 					%Number of ants building the solutions
  Alpha is 1, 				%Weight of the pheromone trail
- Beta is 1,					%Weight of the heuristic information
+ Beta is 5,					%Weight of the heuristic information
  Ro is 0.5.	 				%Pheromone trail persistence
 
 %problem_instance(-Clients,-Demands,-MaxCap,-Distances,-Pheromones) Gets the intance to be solved
@@ -30,7 +30,7 @@ problem_instance(Clients,Demands,MaxCap,Distances,Pheromones):-
               [3,0,2.236067977,2.828427125,4,123105626,5],
               [5.099019514,2.236067977,0,4.123105626,4.242640687,5.830951895],
               [2.236067977,2.828427125,4.123105626,0,2.236067977,2.236067977],
-              [4.472135955,4,123105626,4.242640687,2.236067977,0,2],
+              [4.472135955,4.123105626,4.242640687,2.236067977,0,2],
               [4,5,5.830951895,2.236067977,2,0]
              ],
  Pheromones = [[0,0.2,0.2,0.2,0.2,0.2],[0.2,0,0.2,0.2,0.2,0.2],[0.2,0.2,0,0.2,0.2,0.2],
@@ -43,7 +43,7 @@ construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Ph
   (fromto([0],Partial_sol_0,Partial_sol_1,Ant_k),				
    fromto(Clients,Clients_0,Clients_1,[]),fromto(0,Pos_0,Next,_),param(Alpha,Beta,Demands,MaxCap,Distances,Pheromones) do
     choose_next_movement(Pos_0,Clients_0,Partial_sol_0,Demands,MaxCap,Distances,Pheromones,Next,Alpha,Beta),	%The ant chooses her next step
-    move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next)	%The ant moves (update the values in the loop) TO DO
+    move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next)	%The ant moves (update the values in the loop)
   ),
  writeln(Ant_k)
  ).
@@ -54,37 +54,46 @@ local_search(_Ant_routes,_Ant_routes_LS).	%TO DO
 update_trails(_Ro,_Ant_routes_LS).		%TO DO
 show_solution.							%TO DO
 
+%choose_next_movement(+Pos_0,+Clients_0,_Partial_sol_0,_Demands,_MaxCap,+Distances,+Pheromones,-Next,+Alpha,+Beta)
 choose_next_movement(Pos_0,Clients_0,_Partial_sol_0,_Demands,_MaxCap,Distances,Pheromones,Next,Alpha,Beta):-
  PosCorr is Pos_0+1, %Arrays are indexed from 0
  ith(PosCorr,Distances,DistL),
  ith(PosCorr,Pheromones,PheroL),
- remove_ith(PosCorr,DistL,DistLCorr),
- remove_ith(PosCorr,PheroL,PheroLCorr),
- calulate_ProbDenom(PheroLCorr,DistLCorr,Alpha,Beta,SUM_Ph_H),
+ calulate_ProbDenom(Clients_0,PheroL,DistL,Alpha,Beta,SUM_Ph_H),
  (foreach(J,Clients_0),fromto([],PIn,POut,Plist),param(_PosCorr,DistL,PheroL,SUM_Ph_H,Alpha,Beta,SUM_Ph_H) do
   Jcorr is J+1, %Arrays are indexed from 0
   ith(Jcorr,DistL,Dist_i_j),
   ith(Jcorr,PheroL,Phero_i_j),
-  P_i_j is ((Phero_i_j^Alpha)*((1/Dist_i_j)^Beta))/SUM_Ph_H, % CHECK. The sum should be 1!!!
+  P_i_j is ((Phero_i_j^Alpha)*((1/Dist_i_j)^Beta))/SUM_Ph_H,
   append(PIn,[P_i_j],POut)
  ),
- writeln(Plist),
- length(Clients_0,Clients_0L),
- random(N), Ancho is (2^31-1)/Clients_0L, N1 is N/Ancho, ceiling(N1,Nextf), integer(Nextf,Next),
- writeln(Next).
+ random(N), 
+ NProb is N/(2^31-1), 
+ nextMovement(NProb,Plist,1,Chosen),
+ ith(Chosen,Clients_0,Next).
 
 %move(+Partial_sol_0,-Partial_sol_1,+Clients_0,-Clients_1,+Next)
 move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next):-
  append(Partial_sol_0,[Next],Partial_sol_1),
  delete_meu(Next,Clients_0,Clients_1).
 
-%calulate_ProbDenom(+PheroL,+DistL,+Alpha,+Beta,-SUM_Ph_H)
-calulate_ProbDenom(PheroL,DistL,Alpha,Beta,SUM_Ph_H):-
- (foreach(Ph_l,PheroL),foreach(D_l,DistL),fromto(0,SumIn,SumOut,SUM_Ph_H),param(Alpha,Beta) do
-  SumOut is SumIn + (Ph_l^Alpha)*(D_l^Beta)
+%calulate_ProbDenom(+Clients_0,+PheroL,+DistL,+Alpha,+Beta,-SUM_Ph_H) calculates the denom. of the P_i_j^k formula
+calulate_ProbDenom(Clients_0,PheroL,DistL,Alpha,Beta,SUM_Ph_H):-
+ (foreach(Neighbour,Clients_0),fromto(0,SumIn,SumOut,SUM_Ph_H),param(Alpha,Beta,PheroL,DistL) do
+   NCorr is Neighbour+1,
+  ith(NCorr,PheroL,Ph_l),
+  ith(NCorr,DistL,D_l),
+  SumOut is SumIn + (Ph_l^Alpha)*((1/D_l)^Beta)
  ).
 
-
+%nextMovement(+NProb,+Plist,+ChosenIn,-Chosen) 
+nextMovement(NProb,[H|_],Chosen,Chosen):-
+ (NProb =< H -> true).
+nextMovement(NProb,[H|T],ChosenIn,Chosen):-
+ (NProb>H -> NProb_1 is NProb-H,
+             Chosen_1 is ChosenIn+1,
+             nextMovement(NProb_1,T,Chosen_1,Chosen)
+ ).
 
 % ----- Auxiliay rules -----
 
