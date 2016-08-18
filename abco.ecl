@@ -3,11 +3,11 @@
 % abco\0 The Ant Borg Colony Optimisation algorithm
 abco:-
  parameters(Max_sol,M,Alpha,Beta,Ro),							%parameters initalisation
- problem_instance(Clients,Demands,MaxCap,Distances,Pheromones),			%problem instance values
- (for(I,1,Max_sol),param(M,Alpha,Beta,Ro,Clients,Demands,MaxCap,Distances,Pheromones) do			%Loop Max_sol times
+ problem_instance(Clients,Demands,MaxCap,Distances,PheromonesIn),			%problem instance values
+ (for(I,1,Max_sol),fromto(PheromonesIn,Pheromones,PheromonesOut,_),param(M,Alpha,Beta,Ro,Clients,Demands,MaxCap,Distances) do	%Loop Max_sol times
        construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Pheromones),	%solutions construction phase
-       local_search(Ants_routes,Ants_routes_LS),				%local search phase
-       update_trails(Ro,Ants_routes_LS),						%given the new soltions, update the pheromones
+       local_search(Ants_routes,Ants_routes_LS),				%local search phase TO DO
+       update_trails(Ro,Ants_routes_LS,Distances,Pheromones, PheromonesOut),						%given the new soltions, update the pheromones
   writeln(I) %remove
  ),
  show_solution.
@@ -16,7 +16,7 @@ abco:-
 % Should the parameters be read from a file or be in the query itself (?)
 parameters(Max_sol,M,Alpha,Beta,Ro):-
  Max_sol is 10,			%Temination condition - maximum number of solutions
- M is 1, 					%Number of ants building the solutions
+ M is 5, 					%Number of ants building the solutions
  Alpha is 1, 				%Weight of the pheromone trail
  Beta is 5,					%Weight of the heuristic information
  Ro is 0.5.	 				%Pheromone trail persistence
@@ -27,7 +27,7 @@ problem_instance(Clients,Demands,MaxCap,Distances,Pheromones):-
  Demands = [10,10,10,10],														%List of clients demands
  MaxCap = 100,																	%Maximum capacity for a truck
  Distances = [[0,3,5.099019514,2.236067977,4.472135955,4],
-              [3,0,2.236067977,2.828427125,4,123105626,5],
+              [3,0,2.236067977,2.828427125,4.123105626,5],
               [5.099019514,2.236067977,0,4.123105626,4.242640687,5.830951895],
               [2.236067977,2.828427125,4.123105626,0,2.236067977,2.236067977],
               [4.472135955,4.123105626,4.242640687,2.236067977,0,2],
@@ -35,23 +35,23 @@ problem_instance(Clients,Demands,MaxCap,Distances,Pheromones):-
              ],
  Pheromones = [[0,0.2,0.2,0.2,0.2,0.2],[0.2,0,0.2,0.2,0.2,0.2],[0.2,0.2,0,0.2,0.2,0.2],
  			   [0.2,0.2,0.2,0,0.2,0.2],[0.2,0.2,0.2,0.2,0,0.2],[0.2,0.2,0.2,0.2,0.2,0]].
+%Pheromones = [[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]].
 
 %construct_solutions(+M,+Alpha,+Beta,-Ant_routes,+Clients) Construction of the solutions for a set of ants
 construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Pheromones):-
  length(Ants_routes,M), 										%A list of M routes, each corresponding to an ant
   (foreach(Ant_k,Ants_routes),param(Alpha,Beta,Clients,Demands,MaxCap,Distances,Pheromones) do 		%For each ant, her route is built
-  (fromto([0],Partial_sol_0,Partial_sol_1,Ant_k),				
+  (fromto([0],Partial_sol_0,Partial_sol_1,Ant_k_0),				
    fromto(Clients,Clients_0,Clients_1,[]),fromto(0,Pos_0,Next,_),param(Alpha,Beta,Demands,MaxCap,Distances,Pheromones) do
     choose_next_movement(Pos_0,Clients_0,Partial_sol_0,Demands,MaxCap,Distances,Pheromones,Next,Alpha,Beta),	%The ant chooses her next step
     move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Next)	%The ant moves (update the values in the loop)
   ),
- writeln(Ant_k)
+  append(Ant_k_0,[0],Ant_k),
+  writeln(Ant_k)
  ).
 
-% INCOMPLETE RULES (below)
+local_search(Ants_routes,Ants_routes).	%TO DO (change the second to Ant_routes_LS)
 
-local_search(_Ant_routes,_Ant_routes_LS).	%TO DO
-update_trails(_Ro,_Ant_routes_LS).		%TO DO
 show_solution.							%TO DO
 
 %choose_next_movement(+Pos_0,+Clients_0,_Partial_sol_0,_Demands,_MaxCap,+Distances,+Pheromones,-Next,+Alpha,+Beta)
@@ -95,6 +95,33 @@ nextMovement(NProb,[H|T],ChosenIn,Chosen):-
              nextMovement(NProb_1,T,Chosen_1,Chosen)
  ).
 
+%update_trails(+Ro,+Ants_routes_LS,+Distances,+Pheromones,-PheromonesOut)
+update_trails(_Ro,Ants_routes_LS,Distances,Pheromones,_PheromonesOut):-
+ writeln(Pheromones),
+ trails_quality(Ants_routes_LS,Distances,LQuality),
+ best(LQuality,Best)
+% TO DO: lower and add new pheromones
+ .
+
+%trails_quality(+Ants_routes_LS,+Distances,-LQuality) builds the list of qualities of the trails found
+trails_quality(Ants_routes_LS,Distances,LQuality):-
+ writeln(Distances),
+ writeln(Ants_routes_LS),
+ (foreach(Route,Ants_routes_LS),fromto([],LQualityIn,LQualityOut,LQuality),param(Distances) do
+  append([First],Route_1,Route),
+  (foreach(J,Route_1),fromto(First,I,Inext,_),fromto(0,QIn,QOut,RouteQ),param(Distances) do
+   ICorr is I+1, %Arrays are indexed from 0
+   JCorr is J+1, %Arrays are indexed from 0
+   ith(ICorr,Distances,DistL),
+   ith(JCorr,DistL,Dist_i_j),
+   QOut is QIn+Dist_i_j,
+   Inext is J
+  ),
+  append(LQualityIn,[RouteQ],LQualityOut)
+ ),
+ writeln(LQuality).
+
+
 % ----- Auxiliay rules -----
 
  substr(X,Y,Z):-
@@ -129,3 +156,9 @@ ith2(1,[H|_],H2):-nonvar(H),H=H2.
 ith2(N,[_|T],P):-
     ith2(Naux,T,P),
     N is Naux+1.
+
+% best(+LQuality,-Best) Returns the position of the best (lowest) element
+%						in the list 
+best(LQuality,Best):-
+ Min is min(LQuality),
+ ith(Best,LQuality,Min).
