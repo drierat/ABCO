@@ -5,42 +5,49 @@
 abco:-
  parameters(Max_sol,M,Alpha,Beta,Ro),										%ABCO parameters initalisation
  problem_instance(Clients,Demands,MaxCap,Distances,PheromonesIn),			%problem instance values
- (for(I,1,Max_sol),fromto(PheromonesIn,Pheromones,PheromonesOut,_),
+ (for(I,1,Max_sol),fromto(PheromonesIn,Pheromones,PheromonesOut,_),fromto([99999,[]],SolIn,SolOut,Sol),
   param(M,Alpha,Beta,Ro,Clients,Demands,MaxCap,Distances) do				%Loop Max_sol times
-  	writeln(''),write('iteration '),writeln(I),																%TO REMOVE
+  	writeln(''),write('iteration '),writeln(I),								%TO REMOVE
   	construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Pheromones),		%solutions construction phase
   	local_search(Ants_routes,Ants_routes_LS),								%TO DO local search phase
-  	update_trails(Ro,Ants_routes_LS,Distances,Pheromones, PheromonesOut)	%pheromones update
+  	update_trails(Ro,Ants_routes_LS,Distances,Pheromones,PheromonesOut,SolIn,SolOut)	%pheromones update
  ),
- show_solution.																%TO DO print solution
+ show_solution(Sol).																%TO DO print solution
 
 % parameters(-Max_sol,-M,-Alpha,-Beta,-Ro) 
 % ABCO parameters initialisation 
 % Should the parameters be read from a file or be in the query itself (?)
 %
 parameters(Max_sol,M,Alpha,Beta,Ro):-
- Max_sol is 10,																%temination condition - maximum number of solutions
- M is 10,																	%number of ants building the solutions
- Alpha is 1,																%weight of the pheromone trail
- Beta is 5,																	%weight of the heuristic information
- Ro is 0.5.																	%pheromone trail persistence
+ Max_sol is 1000,															%temination condition - maximum number of solutions
+ M is 100,																	%number of ants building the solutions
+ Alpha is 5,																%weight of the pheromone trail
+ Beta is 1,																	%weight of the heuristic information
+ Ro is 0.9.																	%pheromone trail persistence
 
 % problem_instance(-Clients,-Demands,-MaxCap,-Distances,-Pheromones) 
 % Reads the intance to be solved
 %
 problem_instance(Clients,Demands,MaxCap,Distances,Pheromones):-
- Clients = [1,2,3,4,5],														%list of clients to serve
- Demands = [10,20,20,10,20],													%list of clients demands
- MaxCap = 70,																%maximum capacity for a truck
- Distances = [[0,3,5.099019514,2.236067977,4.472135955,4],					%distances matrix
-              [3,0,2.236067977,2.828427125,4.123105626,5],
-              [5.099019514,2.236067977,0,4.123105626,4.242640687,5.830951895],
-              [2.236067977,2.828427125,4.123105626,0,2.236067977,2.236067977],
-              [4.472135955,4.123105626,4.242640687,2.236067977,0,2],
-              [4,5,5.830951895,2.236067977,2,0]
-             ],
- Pheromones = [[0,0.2,0.2,0.2,0.2,0.2],[0.2,0,0.2,0.2,0.2,0.2],[0.2,0.2,0,0.2,0.2,0.2],	%pheromones initial matrix
- 			   [0.2,0.2,0.2,0,0.2,0.2],[0.2,0.2,0.2,0.2,0,0.2],[0.2,0.2,0.2,0.2,0.2,0]].
+% Clients = [1,2,3,4,5],														%list of clients to serve
+% Demands = [10,20,20,10,20],												%list of clients demands
+% MaxCap = 70,																%maximum capacity for a truck
+% Distances = [[0,3,5.099019514,2.236067977,4.472135955,4],					%distances matrix
+%              [3,0,2.236067977,2.828427125,4.123105626,5],
+%              [5.099019514,2.236067977,0,4.123105626,4.242640687,5.830951895],
+%              [2.236067977,2.828427125,4.123105626,0,2.236067977,2.236067977],
+%              [4.472135955,4.123105626,4.242640687,2.236067977,0,2],
+%              [4,5,5.830951895,2.236067977,2,0]
+%             ],
+%initialisationPheromones(0.2,5,Pheromones).
+%
+Demands = [1,23,23,5,7,18,12,20,19,19,16,2,26,13,19,17,14,8,10,5,19,12,9,18,4,20,8,3,18,26,21,21,8,19,66,21],
+MaxCap = 100,
+Clients = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
+Coords = ([[86,22],[29,17],[4,50],[25,13],[67,37],[13,7],[62,15],[84,38],[34,3],[19,45],[42,76],[40,86],[25,94],[63,57],[75,24],[61,85],[87,38],
+[54,39],[66,34],[46,39],[47,17],[21,54],[19,83],[1,82],[94,28],[82,72],[41,59],[100,77],[1,57],[96,7],[57,82],[47,38],[68,89],[16,36],[51,38],[83,74],[84,2]]),
+coords2dists(Coords,Distances),
+initialisationPheromones(1,36,Pheromones).
 
 % construct_solutions(+M,+Alpha,+Beta,-Ant_routes,+Clients) 
 % Construction of the solutions for a set of M ants (one iteration)
@@ -54,13 +61,17 @@ construct_solutions(M,Alpha,Beta,Ants_routes,Clients,Demands,MaxCap,Distances,Ph
    	 	choose_next_movement(Pos_0,Clients_0,Partial_sol_0,Demands,Cap_0,Distances,Pheromones,Next,Alpha,Beta), 
     	move(Partial_sol_0,Partial_sol_1,Clients_0,Clients_1,Cap_0,Cap_1,MaxCap,Demands,Next)
     ),
-    append(Ant_k_0,[0],Ant_k),												%return to depot ('0') is the final movement
-    writeln(Ant_k)															%TO REMOVE
+    append(Ant_k_0,[0],Ant_k)												%return to depot ('0') is the final movement
+%    writeln(Ant_k)															%TO REMOVE
  ).
 
 local_search(Ants_routes,Ants_routes).										%TO DO (change the second to Ant_routes_LS)
 
-show_solution.																%TO DO
+show_solution([Cost|Sol]):-
+writeln('---------------------------------'),
+write('The cost of the best solution is '),writeln(Cost),
+write('corresponding to '),writeln(Sol),
+writeln('---------------------------------').
 
 % choose_next_movement(+Pos_0,+Clients_0,_Partial_sol_0,+Demands,+Cap,+Distances,+Pheromones,-Next,+Alpha,+Beta)
 % Next movement choice for an ant
@@ -135,13 +146,17 @@ nextMovement(NProb,[H|T],ChosenIn,Chosen):-
 % once the best trail for a set of ants is chosen, the pheromones of all the paths are updated
 % by applying evaporation and increment of the arcs in the best solution found
 %
-update_trails(Ro,Ants_routes_LS,Distances,Pheromones,PheromonesOut):-
+update_trails(Ro,Ants_routes_LS,Distances,Pheromones,PheromonesOut,SolIn,SolOut):-
  evaporation(Pheromones, Ro, Pheromones_Ev),							%pheromones evaporation
  trails_quality(Ants_routes_LS,Distances,LQuality),						%trails quality calculation
  best(LQuality,Best,L),													%what's the best trail found?
  ith(Best,Ants_routes_LS,Ant_best),!,
- write('correspondinto the trail '),writeln(Ant_best),
- depositPh(Ant_best,L,Pheromones_Ev,PheromonesOut).						%ant with best trail deposits pheromones
+% write('correspondinto the trail '),writeln(Ant_best),					%TO REMOVE
+ depositPh(Ant_best,L,Pheromones_Ev,PheromonesOut),						%ant with best trail deposits pheromones
+ SolIn = [Cost|_],
+ (L<Cost -> append([L],[Ant_best],SolOut);
+ 			SolOut = SolIn
+ ).
 
 % trails_quality(+Ants_routes_LS,+Distances,-LQuality) 
 % builds the list of qualities (depending on the cost function -> length) of the trails found
@@ -257,3 +272,26 @@ build_pairs_list([First|T],PL):-
    append(PLIn,[[I,J]],PLOut),
    Inext is J
  ).
+
+%coords2dists(Coords+,Distances-) transforms coordinates of clients into a distances matrix
+coords2dists(Coords,Distances):-
+	(foreach([C1_i,C1_j],Coords),fromto([],DIn,DOut,Distances),param(Coords) do
+ 		(foreach([C2_i,C2_j],Coords),fromto([],D2In,D2Out,Dist1),param(C1_i,C1_j) do
+ 			Aux is (C2_i-C1_i)^2+(C2_j-C1_j)^2,
+ 			sqrt(Aux,D2),
+ 			append(D2In,[D2],D2Out)
+ 		),
+ 		append(DIn,[Dist1],DOut)
+ 	).
+
+%initialisationPheromones(+Value,+ClientsNum,-Pheromones) initialises the pheromones matrix
+initialisationPheromones(Value,ClientsNum,Pheromones):-
+	Cl is ClientsNum+1, 													%include the depot
+	(for(I,1,Cl),fromto([],PhIn,PhOut,Pheromones),param(Cl,Value) do
+		(for(J,1,Cl),fromto([],Ph2In,Ph2Out,Ph2),param(I,Value) do
+			(I=J -> append(Ph2In,[0],Ph2Out);
+					append(Ph2In,[Value],Ph2Out)
+			)
+		),
+		append(PhIn,[Ph2],PhOut)
+	).
